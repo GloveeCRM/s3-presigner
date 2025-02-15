@@ -33,7 +33,7 @@ func PresignHandler(s *storage.Storage) http.HandlerFunc {
 			return
 		}
 
-		if req.Operation != "GET" && req.Operation != "DELETE" && req.Operation != "PUT" {
+		if req.Operation != "GET" && req.Operation != "PUT" && req.Operation != "DELETE" {
 			writeJSONResponse(w, http.StatusBadRequest, ErrorResponse{Error: "Unsupported operation"})
 			return
 		}
