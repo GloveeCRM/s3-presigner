@@ -3,11 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "${PORT}:${PORT}"
     env_file:
       - .env
-    environment:
-      - PORT=${PORT}
-      - AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    ports:
+      - 9898:9898

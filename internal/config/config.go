@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultPort   = "8080"
+	defaultPort   = "9898"
 	defaultRegion = "us-east-1"
 )
 
@@ -22,13 +22,8 @@ type Config struct {
 }
 
 func New() *Config {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
-	}
-
 	return &Config{
-		Port:               port,
+		Port:               defaultPort,
 		AWSAccessKey:       os.Getenv("AWS_ACCESS_KEY"),
 		AWSSecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
 	}
