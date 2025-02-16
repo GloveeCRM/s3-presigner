@@ -21,7 +21,7 @@ func (l loggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewServer(cfg *config.Config) *http.Server {
-	s, err := storage.New(cfg)
+	s, err := storage.NewStorage(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}

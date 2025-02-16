@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"s3-presigner/internal/client"
 	"s3-presigner/internal/config"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -16,36 +17,37 @@ import (
 )
 
 type Storage struct {
-	client        *s3.Client
-	presignClient *s3.PresignClient
-	awsConfig     aws.Config
-	gloveeAPIKey  string
+	s3Client        *s3.Client
+	s3PresignClient *s3.PresignClient
+	awsConfig       aws.Config
+	postgrestClient *client.PostgrestClient
 }
 
-func New(cfg *config.Config) (*Storage, error) {
+func NewStorage(cfg *config.Config) (*Storage, error) {
 	awsConfig, err := cfg.LoadAWSConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	client := s3.NewFromConfig(awsConfig)
-	presignClient := s3.NewPresignClient(client)
+	s3Client := s3.NewFromConfig(awsConfig)
+	s3PresignClient := s3.NewPresignClient(s3Client)
+	postgrestClient := client.NewPostgrestClient(cfg.Postgrest.BaseURL, cfg.Postgrest.APIKey, cfg.Postgrest.Schema)
 
 	return &Storage{
-		client:        client,
-		presignClient: presignClient,
-		awsConfig:     awsConfig,
-		gloveeAPIKey:  cfg.GloveeAPIKey,
+		s3Client:        s3Client,
+		s3PresignClient: s3PresignClient,
+		awsConfig:       awsConfig,
+		postgrestClient: postgrestClient,
 	}, nil
 }
 
 func ValidateAWSCredentials(cfg *config.Config) error {
-	storage, err := New(cfg)
+	storage, err := NewStorage(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize AWS client: %w", err)
 	}
 
-	_, err = storage.client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
+	_, err = storage.s3Client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
 	if err != nil {
 		return fmt.Errorf("invalid AWS credentials: %w", err)
 	}
@@ -143,21 +145,11 @@ type FileDetails struct {
 }
 
 func (s *Storage) GetFileDetails(fileID, userID string) (FileDetails, error) {
-	baseURL := "https://api.glovee.io/rpc/file_details"
 	params := url.Values{}
 	params.Add("file_id", fileID)
 	params.Add("user_id", userID)
 
-	requestURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
-
-	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
-	if err != nil {
-		return FileDetails{}, fmt.Errorf("error creating request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.gloveeAPIKey))
-
-	res, err := http.DefaultClient.Do(req)
+	res, err := s.postgrestClient.Request(http.MethodGet, "/rpc/file_details", params)
 	if err != nil {
 		return FileDetails{}, fmt.Errorf("error sending request: %w", err)
 	}
@@ -169,7 +161,7 @@ func (s *Storage) GetFileDetails(fileID, userID string) (FileDetails, error) {
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return FileDetails{}, fmt.Errorf("error getting file details: status code %d", res.StatusCode)
+		return FileDetails{}, fmt.Errorf("error getting file details: status code %d, body: %s", res.StatusCode, string(body))
 	}
 
 	var fileDetails FileDetails

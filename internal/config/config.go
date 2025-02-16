@@ -15,11 +15,17 @@ const (
 	defaultRegion = "us-east-1"
 )
 
+type PostgrestConfig struct {
+	BaseURL string
+	APIKey  string
+	Schema  string
+}
+
 type Config struct {
 	Port               string
 	AWSAccessKey       string
 	AWSSecretAccessKey string
-	GloveeAPIKey       string
+	Postgrest          PostgrestConfig
 }
 
 func New() *Config {
@@ -27,7 +33,11 @@ func New() *Config {
 		Port:               defaultPort,
 		AWSAccessKey:       os.Getenv("AWS_ACCESS_KEY"),
 		AWSSecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
-		GloveeAPIKey:       os.Getenv("GLOVEE_API_KEY"),
+		Postgrest: PostgrestConfig{
+			BaseURL: os.Getenv("GLOVEE_POSTGREST_URL"),
+			APIKey:  os.Getenv("GLOVEE_API_KEY"),
+			Schema:  "services_api",
+		},
 	}
 }
 
