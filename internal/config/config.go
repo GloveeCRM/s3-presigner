@@ -19,6 +19,7 @@ type Config struct {
 	Port               string
 	AWSAccessKey       string
 	AWSSecretAccessKey string
+	GloveeAPIKey       string
 }
 
 func New() *Config {
@@ -26,6 +27,7 @@ func New() *Config {
 		Port:               defaultPort,
 		AWSAccessKey:       os.Getenv("AWS_ACCESS_KEY"),
 		AWSSecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
+		GloveeAPIKey:       os.Getenv("GLOVEE_API_KEY"),
 	}
 }
 

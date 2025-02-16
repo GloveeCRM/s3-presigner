@@ -2,7 +2,11 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"time"
 
 	"s3-presigner/internal/config"
@@ -15,6 +19,7 @@ type Storage struct {
 	client        *s3.Client
 	presignClient *s3.PresignClient
 	awsConfig     aws.Config
+	gloveeAPIKey  string
 }
 
 func New(cfg *config.Config) (*Storage, error) {
@@ -30,6 +35,7 @@ func New(cfg *config.Config) (*Storage, error) {
 		client:        client,
 		presignClient: presignClient,
 		awsConfig:     awsConfig,
+		gloveeAPIKey:  cfg.GloveeAPIKey,
 	}, nil
 }
 
@@ -127,4 +133,50 @@ func (s *Storage) getRegionConfig(region string) aws.Config {
 	cfg := s.awsConfig
 	cfg.Region = region
 	return cfg
+}
+
+type FileDetails struct {
+	FileID    int64  `json:"file_id"`
+	Region    string `json:"region"`
+	Bucket    string `json:"bucket"`
+	ObjectKey string `json:"object_key"`
+}
+
+func (s *Storage) GetFileDetails(fileID, userID string) (FileDetails, error) {
+	baseURL := "https://api.glovee.io/rpc/file_details"
+	params := url.Values{}
+	params.Add("file_id", fileID)
+	params.Add("user_id", userID)
+
+	requestURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
+
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		return FileDetails{}, fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.gloveeAPIKey))
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return FileDetails{}, fmt.Errorf("error sending request: %w", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return FileDetails{}, fmt.Errorf("error reading file details: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return FileDetails{}, fmt.Errorf("error getting file details: status code %d", res.StatusCode)
+	}
+
+	var fileDetails FileDetails
+	err = json.Unmarshal(body, &fileDetails)
+	if err != nil {
+		return FileDetails{}, fmt.Errorf("error unmarshalling file details: %w", err)
+	}
+
+	return fileDetails, nil
 }

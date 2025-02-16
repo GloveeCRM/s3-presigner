@@ -2,14 +2,15 @@ package httpserver
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"s3-presigner/internal/storage"
+	"strconv"
 )
 
 type RequestBody struct {
-	Region    string `json:"region"`
-	Bucket    string `json:"bucket"`
-	ObjectKey string `json:"object_key"`
+	FileID    int64  `json:"file_id"`
+	UserID    int64  `json:"user_id"`
 	Operation string `json:"operation"`
 	ExpiresIn int64  `json:"expires_in"`
 }
@@ -23,13 +24,12 @@ func PresignHandler(s *storage.Storage) http.HandlerFunc {
 
 		var req RequestBody
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSONResponse(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
+			writeJSONResponse(w, http.StatusBadRequest, ErrorResponse{Error: fmt.Sprintf("Invalid request body: %v", err)})
 			return
 		}
 
-		if req.Region == "" || req.Bucket == "" || req.ObjectKey == "" || req.Operation == "" || req.ExpiresIn == 0 {
-			writeJSONResponse(w, http.StatusBadRequest,
-				ErrorResponse{Error: "Missing required fields: region, bucket, object_key, operation, expires_in"})
+		if req.FileID == 0 || req.UserID == 0 || req.Operation == "" || req.ExpiresIn == 0 {
+			writeJSONResponse(w, http.StatusBadRequest, ErrorResponse{Error: "Missing required fields: file_id, user_id, operation, expires_in"})
 			return
 		}
 
@@ -38,8 +38,20 @@ func PresignHandler(s *storage.Storage) http.HandlerFunc {
 			return
 		}
 
+		fileDetails, err := s.GetFileDetails(strconv.FormatInt(req.FileID, 10), strconv.FormatInt(req.UserID, 10))
+		if err != nil {
+			writeJSONResponse(w, http.StatusNotFound, ErrorResponse{Error: err.Error()})
+			return
+		}
+
+		if fileDetails.FileID == 0 || fileDetails.Region == "" || fileDetails.Bucket == "" || fileDetails.ObjectKey == "" {
+			writeJSONResponse(w, http.StatusNotFound, ErrorResponse{Error: "File details not found"})
+			return
+		}
+
 		if req.Operation == "GET" || req.Operation == "DELETE" {
-			if err := s.ObjectExists(req.Region, req.Bucket, req.ObjectKey); err != nil {
+			err := s.ObjectExists(fileDetails.Region, fileDetails.Bucket, fileDetails.ObjectKey)
+			if err != nil {
 				writeJSONResponse(w, http.StatusNotFound, ErrorResponse{Error: err.Error()})
 				return
 			}
@@ -50,11 +62,11 @@ func PresignHandler(s *storage.Storage) http.HandlerFunc {
 
 		switch req.Operation {
 		case "GET":
-			presignedURL, presignErr = s.GetObjectPresignedURL(req.Region, req.Bucket, req.ObjectKey, req.ExpiresIn)
+			presignedURL, presignErr = s.GetObjectPresignedURL(fileDetails.Region, fileDetails.Bucket, fileDetails.ObjectKey, req.ExpiresIn)
 		case "PUT":
-			presignedURL, presignErr = s.PutObjectPresignedURL(req.Region, req.Bucket, req.ObjectKey, req.ExpiresIn)
+			presignedURL, presignErr = s.PutObjectPresignedURL(fileDetails.Region, fileDetails.Bucket, fileDetails.ObjectKey, req.ExpiresIn)
 		case "DELETE":
-			presignedURL, presignErr = s.DeleteObjectPresignedURL(req.Region, req.Bucket, req.ObjectKey, req.ExpiresIn)
+			presignedURL, presignErr = s.DeleteObjectPresignedURL(fileDetails.Region, fileDetails.Bucket, fileDetails.ObjectKey, req.ExpiresIn)
 		}
 
 		if presignErr != nil {
