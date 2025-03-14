@@ -8,16 +8,9 @@ import (
 
 const defaultResponseType = "application/json"
 
-type SuccessResponse struct {
-	StatusCode int    `json:"statusCode"`
-	URL        string `json:"url"`
-}
+type ResponseBody map[string]any
 
-type ErrorResponse struct {
-	Error string `json:"error"`
-}
-
-func writeJSONResponse(w http.ResponseWriter, status int, data interface{}) {
+func writeJSONResponse(w http.ResponseWriter, status int, data ResponseBody) {
 	w.Header().Set("Content-Type", defaultResponseType)
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {

@@ -27,7 +27,9 @@ func NewServer(cfg *config.Config) *http.Server {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/presign", PresignHandler(s))
+	mux.HandleFunc("/presign/get", GetPresignHandler(s))
+	mux.HandleFunc("/presign/delete", DeletePresignHandler(s))
+	mux.HandleFunc("/presign/put", PutPresignHandler(s))
 
 	// Wrap the entire mux with logging middleware
 	return &http.Server{
