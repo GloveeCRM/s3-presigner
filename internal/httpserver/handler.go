@@ -3,7 +3,6 @@ package httpserver
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"s3-presigner/internal/storage"
 )
@@ -176,7 +175,6 @@ type PutPresignRequest struct {
 }
 
 func PutPresignHandler(s *storage.Storage) http.HandlerFunc {
-	log.Printf("PutPresignHandler called")
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			writeJSONResponse(w, http.StatusMethodNotAllowed, ResponseBody{
@@ -185,15 +183,6 @@ func PutPresignHandler(s *storage.Storage) http.HandlerFunc {
 			})
 			return
 		}
-
-		var reqBody PutPresignRequest
-		bodyBytes, err := json.Marshal(r.Body)
-		if err != nil {
-			log.Printf("Error reading request body for logging: %v", err)
-		} else {
-			log.Printf("Request body: %s", string(bodyBytes))
-		}
-		log.Printf("Request body: %+v", reqBody)
 
 		var req PutPresignRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
